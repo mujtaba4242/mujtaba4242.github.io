@@ -1,9 +1,338 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Mujtaba</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mujtaba — Strategy & AI</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0c0e;
+      --surface: #141416;
+      --border: #222226;
+      --accent: #c9a96e;
+      --accent2: #7eb8c9;
+      --text: #e8e6df;
+      --muted: #7a7870;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 60px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(12,12,14,0.85);
+      backdrop-filter: blur(12px);
+    }
+
+    .nav-logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 20px;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 40px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 140px 60px 80px;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(201,169,110,0.07) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 20%, rgba(126,184,201,0.05) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .hero-tag {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 32px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease forwards 0.2s;
+    }
+
+    .hero-headline {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(42px, 6vw, 80px);
+      line-height: 1.1;
+      max-width: 800px;
+      margin-bottom: 40px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease forwards 0.4s;
+    }
+
+    .hero-headline em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    .hero-sub {
+      font-size: 16px;
+      color: var(--muted);
+      max-width: 480px;
+      line-height: 1.8;
+      opacity: 0;
+      animation: fadeUp 0.8s ease forwards 0.6s;
+    }
+
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 48px;
+      padding: 14px 32px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      opacity: 0;
+      animation: fadeUp 0.8s ease forwards 0.8s;
+    }
+
+    .hero-cta:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .scroll-line {
+      position: absolute;
+      bottom: 48px;
+      left: 60px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: fadeUp 0.8s ease forwards 1s;
+    }
+
+    .scroll-line::before {
+      content: '';
+      width: 40px;
+      height: 1px;
+      background: var(--muted);
+    }
+
+    /* ABOUT */
+    .about {
+      padding: 120px 60px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: start;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 24px;
+    }
+
+    .about-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(32px, 4vw, 52px);
+      line-height: 1.15;
+    }
+
+    .about-title em {
+      font-style: italic;
+      color: var(--accent2);
+    }
+
+    .about-body p {
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.9;
+      margin-bottom: 20px;
+    }
+
+    .about-body p strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* STRENGTHS */
+    .strengths {
+      padding: 80px 60px 120px;
+      border-top: 1px solid var(--border);
+    }
+
+    .strengths-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-top: 60px;
+    }
+
+    .strength-card {
+      background: var(--surface);
+      padding: 40px 32px;
+      border: 1px solid var(--border);
+      transition: border-color 0.2s;
+    }
+
+    .strength-card:hover { border-color: var(--accent); }
+
+    .strength-number {
+      font-family: 'DM Serif Display', serif;
+      font-size: 48px;
+      color: var(--border);
+      line-height: 1;
+      margin-bottom: 24px;
+    }
+
+    .strength-title {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .strength-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      nav { padding: 20px 24px; }
+      .nav-links { display: none; }
+      .hero { padding: 120px 24px 60px; }
+      .about { grid-template-columns: 1fr; padding: 80px 24px; gap: 40px; }
+      .strengths { padding: 60px 24px; }
+      .strengths-grid { grid-template-columns: 1fr; }
+      .scroll-line { left: 24px; }
+      footer { padding: 32px 24px; flex-direction: column; gap: 8px; text-align: center; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Coming Soon</h1>
+
+  <nav>
+    <div class="nav-logo">Mujtaba</div>
+    <ul class="nav-links">
+      <li><a href="#about">About</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+
+  <section class="hero">
+    <p class="hero-tag">Strategy · AI · Automation</p>
+    <h1 class="hero-headline">From Economics to AI<br><em>Leading with Ideas,</em><br>Delivering with Technology.</h1>
+    <p class="hero-sub">Building intelligent systems and automation at the intersection of strategic thinking and emerging technology.</p>
+    <a href="#about" class="hero-cta">Learn more →</a>
+    <div class="scroll-line">Scroll to explore</div>
+  </section>
+
+  <section class="about" id="about">
+    <div class="about-left">
+      <p class="section-label">About me</p>
+      <h2 class="about-title">A strategist who makes <em>AI work</em> for people</h2>
+    </div>
+    <div class="about-body">
+      <p>I'm Mujtaba, a former economics educator who served with the <strong>Ministry of Education in the Maldives</strong>. In 2020 I made a deliberate choice — to relocate to the UAE to be with my family and focus on what mattered most at the time.</p>
+      <p>That pause turned into a pivot. Over the past year I've been building a foundation in <strong>networking, CompTIA Security+, and AI</strong> — not just as a learner, but as someone who thinks strategically about how these tools can be put to work.</p>
+      <p>My strength isn't just technical knowledge. It's knowing how to <strong>plan, delegate, and get results</strong> — whether that's through people or AI. I come with ideas, I research relentlessly, and I build systems that work.</p>
+      <p>I'm now returning to professional life with a focus on <strong>IT, AI, and automation</strong> — and this portfolio is where that journey lives.</p>
+    </div>
+  </section>
+
+  <section class="strengths" id="projects">
+    <p class="section-label">What I bring</p>
+    <div class="strengths-grid">
+      <div class="strength-card">
+        <div class="strength-number">01</div>
+        <div class="strength-title">Strategic Thinking</div>
+        <div class="strength-desc">I see the big picture and break it into actionable systems. Planning and delegation are where I naturally operate.</div>
+      </div>
+      <div class="strength-card">
+        <div class="strength-number">02</div>
+        <div class="strength-title">AI & Automation</div>
+        <div class="strength-desc">Building intelligent workflows that save time and scale decisions — currently exploring agents, automation pipelines, and AI-assisted tools.</div>
+      </div>
+      <div class="strength-card">
+        <div class="strength-number">03</div>
+        <div class="strength-title">Fast Execution</div>
+        <div class="strength-desc">I move from idea to implementation quickly. When I see an opportunity, I act — using AI and the right people to get there faster.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer id="contact">
+    <span>© 2025 Mujtaba</span>
+    <span>UAE · Open to opportunities</span>
+  </footer>
+
 </body>
 </html>
