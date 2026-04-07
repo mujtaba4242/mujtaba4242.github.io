@@ -203,6 +203,69 @@
       font-weight: 500;
     }
 
+    /* PROJECTS */
+    .projects {
+      padding: 120px 60px;
+      border-top: 1px solid var(--border);
+    }
+
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2px;
+      margin-top: 60px;
+    }
+
+    .project-card {
+      background: var(--surface);
+      padding: 48px 40px;
+      border: 1px solid var(--border);
+      transition: border-color 0.2s;
+    }
+
+    .project-card:hover { border-color: var(--accent); }
+
+    .project-tag {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      margin-bottom: 24px;
+    }
+
+    .project-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .project-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.8;
+      margin-bottom: 32px;
+    }
+
+    .project-link {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .project-link:hover { opacity: 0.7; }
+
+    @media (max-width: 768px) {
+      .projects { padding: 80px 24px; }
+      .projects-grid { grid-template-columns: 1fr; }
+    }
+
     /* STRENGTHS */
     .strengths {
       padding: 80px 60px 120px;
@@ -308,7 +371,25 @@
     </div>
   </section>
 
-  <section class="strengths" id="projects">
+  <section class="projects" id="projects">
+    <p class="section-label">Projects</p>
+    <div class="projects-grid">
+      <div class="project-card">
+        <div class="project-tag">Live</div>
+        <h3 class="project-title">This Portfolio</h3>
+        <p class="project-desc">A personal portfolio site built from scratch on GitHub Pages — documenting the journey from economics to AI, strategy to execution.</p>
+        <a href="https://mujtaba4242.github.io" class="project-link" target="_blank">Visit site →</a>
+      </div>
+      <div class="project-card">
+        <div class="project-tag">In Progress</div>
+        <h3 class="project-title">Radd رد</h3>
+        <p class="project-desc">An AI reply agent that reads your messages, interviews you point by point on how you want to respond, drafts polished replies, and sends only when you approve.</p>
+        <a href="#" class="project-link">Coming soon →</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="strengths">
     <p class="section-label">What I bring</p>
     <div class="strengths-grid">
       <div class="strength-card">
