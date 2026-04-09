@@ -4,11 +4,10 @@ export default async function handler(req, res) {
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { system, messages } = body;
-
     const apiKey = process.env.GEMINI_API_KEY;
-    
-    // Updated for 2026: Using the v1beta endpoint with the 2.5 series
-    // Note: The "models/" prefix is required inside the path for this version
+
+    // Use gemini-2.5-flash which is the current 2026 stable workhorse
+    // Models MUST have the 'models/' prefix inside the URL path now
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(apiUrl, {
@@ -16,9 +15,10 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { 
-          parts: [{ text: system || "You are Radd, a professional assistant." }] 
+          parts: [{ text: system || "You are Radd, a professional strategic assistant." }] 
         },
         contents: messages.map(m => ({
+          // Google API is strict: role must be 'model' (for AI) or 'user' (for person)
           role: m.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: m.content }]
         }))
@@ -29,9 +29,8 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error('Google API Error:', JSON.stringify(data));
-      // If 429 persists, it's a project-level cooling period
       return res.status(response.status).json({ 
-        error: data.error?.message || 'AI Service is currently restricted',
+        error: data.error?.message || 'The AI service is currently resetting.',
         code: data.error?.code 
       });
     }
@@ -42,7 +41,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ text });
 
   } catch (e) {
-    console.error('Vercel Handler Error:', e.message);
+    console.error('Vercel Handler Crash:', e.message);
     return res.status(500).json({ error: 'Server Error', message: e.message });
   }
 }
