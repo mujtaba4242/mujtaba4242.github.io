@@ -4,8 +4,13 @@ export default async function handler(req, res) {
   const { system, messages } = req.body;
 
   try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'API Key missing in environment variables' });
+    }
+
     const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + process.env.GEMINI_API_KEY,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -20,14 +25,21 @@ export default async function handler(req, res) {
     );
 
     const data = await response.json();
-    console.log('Gemini response:', JSON.stringify(data));
+
+    if (!response.ok) {
+      console.error('Google API Error:', data);
+      return res.status(response.status).json({ error: data.error?.message || 'Google API Error' });
+    }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return res.status(500).json({ error: 'No response', debug: data });
+    
+    if (!text) {
+      return res.status(500).json({ error: 'Model returned an empty response', debug: data });
+    }
 
     res.status(200).json({ text });
   } catch (e) {
-    console.error('Error:', e.message);
+    console.error('Server Handler Error:', e.message);
     res.status(500).json({ error: e.message });
   }
 }
