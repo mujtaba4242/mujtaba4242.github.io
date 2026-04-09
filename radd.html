@@ -1,12 +1,20 @@
 <script>
-// Remove the hardcoded const PASSWORD = 'raddapp';
+// The hardcoded PASSWORD constant has been removed to use Vercel's environment variable instead.
+const EARLY_CODE='RADD2025';
+let sessionExpiry=null;
 
-async function loginWithPassword() {
+function switchTab(tab){
+  document.querySelectorAll('.login-tab').forEach((t,i)=>t.classList.toggle('active',(i===0&&tab==='password')||(i===1&&tab==='pay')));
+  document.getElementById('tab-password').classList.toggle('active',tab==='password');
+  document.getElementById('tab-pay').classList.toggle('active',tab==='pay');
+}
+
+// UPDATED: Now verifies against your Vercel APP_PASSWORD
+async function loginWithPassword(){
   const passwordInput = document.getElementById('passwordInput').value;
   const errorDiv = document.getElementById('passwordError');
   
   try {
-    // Call your new API verify action
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -20,86 +28,236 @@ async function loginWithPassword() {
 
     if (res.ok && data.success) {
       sessionStorage.setItem('radd_auth', 'password');
-      // Store the password to send with future AI requests
-      sessionStorage.setItem('radd_key', passwordInput); 
+      sessionStorage.setItem('radd_key', passwordInput); // Store for AI calls
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('sessionBadge').textContent = '● Authorized';
     } else {
-      errorDiv.textContent = 'Incorrect password or unauthorized.';
+      errorDiv.textContent = 'Incorrect password.';
     }
   } catch (e) {
     errorDiv.textContent = 'Connection error.';
   }
 }
 
-// Update the AI calling functions to include the password
-async function draftOutput() {
-  state.phase = 'drafting';
-  showTyping();
-  
-  const password = sessionStorage.getItem('radd_key');
-  const pc = state.profile.name ? `Author: ${state.profile.name}${state.profile.role ? ', ' + state.profile.role : ''}. ${state.profile.about || ''}` : '';
-  const at = state.interviewAnswers.length ? '\n\nInterview answers:\n' + state.interviewAnswers.map((a, i) => `Q${i+1}: ${a.q}\nA: ${a.a}`).join('\n\n') : '';
-  
-  const sys = `You are Radd, an expert AI drafting assistant. ${pc}\n${getLengthInstr(getLength())} Tone: ${getTone()}. Language: ${getLang()}.\nAuto-detect context and format accordingly. Output ONLY the draft — no preamble.`;
-  
-  try {
-    // Added 'password' to the body here
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        password: password,
-        system: sys,
-        messages: [{ role: 'user', content: `Input: ${state.originalInput}${at}\n\nDraft now.` }]
-      })
-    });
-    
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+function loginWithCode(){
+  if(document.getElementById('payCode').value.trim().toUpperCase()===EARLY_CODE){
+    const exp=Date.now()+10*60*1000;
+    sessionStorage.setItem('radd_auth','timed');sessionStorage.setItem('radd_expiry',exp);
+    sessionExpiry=exp;document.getElementById('loginScreen').classList.add('hidden');startSessionTimer();
+  }else{document.getElementById('payError').textContent='Invalid access code.';}
+}
 
-    removeTyping();
-    addMessage('radd', data.text, true);
-    state.phase = 'done';
-  } catch (e) {
-    removeTyping();
-    addMessage('radd', 'Error: ' + e.message);
-    state.phase = 'idle';
+function startSessionTimer(){
+  const badge=document.getElementById('sessionBadge');
+  const iv=setInterval(()=>{
+    const left=sessionExpiry-Date.now();
+    if(left<=0){clearInterval(iv);logout();return;}
+    const m=Math.floor(left/60000),s=Math.floor((left%60000)/1000);
+    badge.textContent=`● ${m}:${s.toString().padStart(2,'0')} left`;
+  },1000);
+}
+
+function logout(){
+  sessionStorage.removeItem('radd_auth');
+  sessionStorage.removeItem('radd_expiry');
+  sessionStorage.removeItem('radd_key');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('passwordInput').value='';document.getElementById('passwordError').textContent='';
+}
+
+function checkAuth(){
+  const auth=sessionStorage.getItem('radd_auth');if(!auth)return;
+  if(auth==='timed'){
+    const exp=parseInt(sessionStorage.getItem('radd_expiry')||'0');
+    if(Date.now()>exp)return;
+    sessionExpiry=exp;document.getElementById('loginScreen').classList.add('hidden');startSessionTimer();
+  }else{document.getElementById('loginScreen').classList.add('hidden');document.getElementById('sessionBadge').textContent='● Authorized';}
+}
+checkAuth();
+
+let state={phase:'idle',originalInput:'',interviewAnswers:[],questionCount:0,currentQuestion:'',currentDraftEl:null,profile:JSON.parse(localStorage.getItem('radd_profile')||'{}')};
+const MAX_Q=5;
+if(state.profile.name){
+  document.getElementById('profileName').value=state.profile.name||'';
+  document.getElementById('profileRole').value=state.profile.role||'';
+  document.getElementById('profileAbout').value=state.profile.about||'';
+  if(state.profile.lang){document.getElementById('langSelect').value=state.profile.lang;document.getElementById('profileLang').value=state.profile.lang;}
+}
+
+function toggleTheme(){const h=document.documentElement;h.setAttribute('data-theme',h.getAttribute('data-theme')==='dark'?'light':'dark');}
+function openProfile(){document.getElementById('profileModal').classList.add('open');}
+function closeProfile(){document.getElementById('profileModal').classList.remove('open');}
+function saveProfile(){
+  state.profile={name:document.getElementById('profileName').value,role:document.getElementById('profileRole').value,about:document.getElementById('profileAbout').value,lang:document.getElementById('profileLang').value};
+  localStorage.setItem('radd_profile',JSON.stringify(state.profile));
+  if(state.profile.lang)document.getElementById('langSelect').value=state.profile.lang;
+  closeProfile();
+}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,150)+'px';}
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend();}}
+
+['lengthGroup','toneGroup'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{
+    if(!e.target.classList.contains('pill'))return;
+    e.target.closest('.pill-group').querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+    e.target.classList.add('active');
+    if(state.phase==='done'&&id==='lengthGroup')regenerateDraft();
+  });
+});
+
+function getLength(){return document.querySelector('#lengthGroup .pill.active')?.dataset.val||'short';}
+function getTone(){return document.querySelector('#toneGroup .pill.active')?.dataset.val||'professional';}
+function getLang(){return document.getElementById('langSelect').value||'English';}
+function getLengthInstr(l){return{'one-line':'Respond in exactly one concise sentence.','short':'1 to 2 paragraphs maximum.','medium':'Around 300 to 500 words.','detailed':'500 to 1000 words with clear structure.','comprehensive':'As long as needed with proper headings and sections.'}[l]||'1 to 2 paragraphs.';}
+
+function addMessage(role,text,isDraft=false){
+  const cw=document.getElementById('chatWindow');
+  document.getElementById('emptyState')?.remove();
+  const div=document.createElement('div');div.className=`msg ${role}`;
+  const rl=role==='radd'?'Radd رد':(state.profile.name||'You');
+  let inner=`<div class="msg-role">${rl}</div>`;
+  if(isDraft){
+    const w=text.split(/\s+/).length,rt=Math.max(1,Math.round(w/200));
+    inner+=`<div class="msg-body" id="draftBody" contenteditable="false">${text}</div>`;
+    inner+=`<div class="word-count">${w} words · ~${rt} min read</div>`;
+    inner+=`<div class="draft-actions"><button class="draft-btn primary" onclick="copyDraft()">Copy</button><button class="draft-btn" onclick="editDraft()">Edit</button><button class="draft-btn" onclick="followUp()">Follow-up</button><button class="draft-btn" onclick="regenerateDraft()">Regenerate</button></div>`;
+    state.currentDraftEl=null;
+  }else{inner+=`<div class="msg-body">${text}</div>`;}
+  div.innerHTML=inner;cw.appendChild(div);cw.scrollTop=cw.scrollHeight;
+  if(isDraft)state.currentDraftEl=div.querySelector('#draftBody');
+  return div;
+}
+
+function showTyping(){
+  const cw=document.getElementById('chatWindow');
+  const t=document.createElement('div');t.id='typingDots';t.className='msg radd';
+  t.innerHTML='<div class="msg-role">Radd رد</div><div class="typing"><span></span><span></span><span></span></div>';
+  cw.appendChild(t);cw.scrollTop=cw.scrollHeight;
+}
+function removeTyping(){document.getElementById('typingDots')?.remove();}
+
+// UPDATED: Now sends the password along with AI requests
+async function callRadd(system,messages){
+  const password = sessionStorage.getItem('radd_key');
+  const res=await fetch('/api/chat',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ password, system, messages })
+  });
+  const data=await res.json();
+  if(!res.ok) throw new Error(data.error || 'Unauthorized or Server Error');
+  return data.text;
+}
+
+function handleSend(){
+  const inp=document.getElementById('mainInput');const text=inp.value.trim();if(!text)return;
+  inp.value='';inp.style.height='auto';
+  if(state.phase==='idle'){startRadd(text);}
+  else if(state.phase==='opening'||state.phase==='interviewing'){handleInterviewReply(text);}
+  else if(state.phase==='followup'){applyFollowUp(text);}
+  else if(state.phase==='done'){newSession();setTimeout(()=>startRadd(text),50);}
+}
+
+async function startRadd(input){
+  state.originalInput=input;state.interviewAnswers=[];state.questionCount=0;state.currentDraftEl=null;
+  addMessage('user',input);
+  if(document.getElementById('skipToggle').checked){await draftOutput();}
+  else{await openingQuestion();}
+}
+
+async function openingQuestion(){
+  showTyping();
+  const pc=state.profile.name?`User is ${state.profile.name}${state.profile.role?', '+state.profile.role:''}.`:'';
+  const sys=`You are Radd, an AI drafting assistant. ${pc}\nInput: "${state.originalInput}"\nIn one short sentence identify what type of input this is. Then ask: "Shall I ask you a few quick questions to draft this better, or would you prefer I draft it directly?" Be brief and conversational.`;
+  try{const r=await callRadd(sys,[{role:'user',content:'Go.'}]);removeTyping();addMessage('radd',r);state.phase='opening';}
+  catch(e){removeTyping();addMessage('radd','Error: ' + e.message);state.phase='idle';}
+}
+
+async function handleInterviewReply(answer){
+  addMessage('user',answer);
+  if(state.phase==='opening'){
+    const l=answer.toLowerCase();
+    const direct=l.includes('direct')||l.includes('no')||l.includes('draft')||l.includes('skip')||l.includes('just go')||l.includes('go ahead')||l.includes('please draft');
+    if(direct){await draftOutput();}else{state.phase='interviewing';await askNextQuestion();}
+  }else if(state.phase==='interviewing'){
+    state.interviewAnswers.push({q:state.currentQuestion,a:answer});await askNextQuestion();
   }
 }
 
-// Update follow-up logic to include the password as well
-async function applyFollowUp(instruction) {
-  addMessage('user', instruction);
-  const cur = state.currentDraftEl?.innerText || '';
-  const password = sessionStorage.getItem('radd_key');
+async function askNextQuestion(){
   showTyping();
-  
-  const sys = `You are Radd. Revise this draft:\n"${cur}"\nInstruction: "${instruction}"\n${getLengthInstr(getLength())} Tone: ${getTone()}. Language: ${getLang()}.\nOutput only the revised draft.`;
-  
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        password: password,
-        system: sys,
-        messages: [{ role: 'user', content: 'Revise.' }]
-      })
-    });
-    
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+  const pc=state.profile.name?`User is ${state.profile.name}, ${state.profile.role||''}.`:'';
+  const at=state.interviewAnswers.map((a,i)=>`Q${i+1}: ${a.q}\nA: ${a.a}`).join('\n');
+  const sys=`You are Radd. ${pc}\nOriginal input: "${state.originalInput}"\nAnswers so far:\n${at||'None'}\nAsk ONE short specific question to improve the draft. If you have enough info or ${MAX_Q} questions done, reply exactly: READY_TO_DRAFT`;
+  try{
+    const r=await callRadd(sys,[{role:'user',content:'Next question or READY_TO_DRAFT.'}]);
+    removeTyping();
+    if(r.trim()==='READY_TO_DRAFT'||state.questionCount>=MAX_Q){await draftOutput();}
+    else{state.questionCount++;state.currentQuestion=r;addMessage('radd',r);state.phase='interviewing';}
+  }catch(e){removeTyping();addMessage('radd','Error: ' + e.message);}
+}
 
-    removeTyping();
-    state.currentDraftEl?.closest('.msg')?.remove();
-    addMessage('radd', data.text, true);
-    state.phase = 'done';
-    document.getElementById('mainInput').placeholder = 'Paste a message, describe a project, write anything...';
-  } catch (e) {
-    removeTyping();
-    addMessage('radd', 'Error: ' + e.message);
-    state.phase = 'done';
-  }
+async function draftOutput(){
+  state.phase='drafting';showTyping();
+  const pc=state.profile.name?`Author: ${state.profile.name}${state.profile.role?', '+state.profile.role:''}. ${state.profile.about||''}`:'';
+  const at=state.interviewAnswers.length?'\n\nInterview answers:\n'+state.interviewAnswers.map((a,i)=>`Q${i+1}: ${a.q}\nA: ${a.a}`).join('\n\n'):'';
+  const sys=`You are Radd, an expert AI drafting assistant. ${pc}\n${getLengthInstr(getLength())} Tone: ${getTone()}. Language: ${getLang()}.\nAuto-detect context and format accordingly. Output ONLY the draft — no preamble.`;
+  try{
+    const draft=await callRadd(sys,[{role:'user',content:`Input: ${state.originalInput}${at}\n\nDraft now.`}]);
+    removeTyping();addMessage('radd',draft,true);state.phase='done';
+  }catch(e){removeTyping();addMessage('radd','Error: ' + e.message);state.phase='idle';}
+}
+
+async function regenerateDraft(){state.currentDraftEl?.closest('.msg')?.remove();await draftOutput();}
+function editDraft(){
+  if(!state.currentDraftEl)return;
+  const e=state.currentDraftEl.getAttribute('contenteditable')==='true';
+  state.currentDraftEl.setAttribute('contenteditable',e?'false':'true');
+  if(!e)state.currentDraftEl.focus();
+}
+function copyDraft(){
+  const text=state.currentDraftEl?.innerText||'';if(!text)return;
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.querySelector('.draft-btn.primary');
+    if(btn){btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',2000);}
+  });
+}
+function followUp(){
+  state.phase='followup';
+  addMessage('radd','What would you like to change or improve in this draft?');
+  document.getElementById('mainInput').placeholder='e.g. Make the intro stronger, be more concise...';
+  document.getElementById('mainInput').focus();
+}
+async function applyFollowUp(instruction){
+  addMessage('user',instruction);
+  const cur=state.currentDraftEl?.innerText||'';showTyping();
+  const sys=`You are Radd. Revise this draft:\n"${cur}"\nInstruction: "${instruction}"\n${getLengthInstr(getLength())} Tone: ${getTone()}. Language: ${getLang()}.\nOutput only the revised draft.`;
+  try{
+    const r=await callRadd(sys,[{role:'user',content:'Revise.'}]);
+    removeTyping();state.currentDraftEl?.closest('.msg')?.remove();
+    addMessage('radd',r,true);state.phase='done';
+    document.getElementById('mainInput').placeholder='Paste a message, describe a project, write anything...';
+  }catch(e){removeTyping();addMessage('radd','Error: ' + e.message);state.phase='done';}
+}
+
+function newSession(){
+  document.getElementById('chatWindow').innerHTML=`<div class="empty-state" id="emptyState"><div class="empty-ar">رد</div><div class="empty-text">Type or paste anything below<br>and Radd will get to work.</div></div>`;
+  document.getElementById('mainInput').placeholder='Paste a message, describe a project, write anything...';
+  document.getElementById('skipToggle').checked=false;
+  state={...state,phase:'idle',originalInput:'',interviewAnswers:[],questionCount:0,currentQuestion:'',currentDraftEl:null};
+}
+
+let recognition=null;
+function toggleMic(){
+  const btn=document.getElementById('mainMic'),target=document.getElementById('mainInput');
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){alert('Voice input not supported. Try Chrome.');return;}
+  if(recognition){recognition.stop();return;}
+  recognition=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
+  recognition.continuous=false;recognition.interimResults=false;recognition.lang='en-US';
+  btn.classList.add('listening');
+  recognition.onresult=e=>{target.value+=(target.value?' ':'')+e.results[0][0].transcript;autoResize(target);};
+  recognition.onend=()=>{btn.classList.remove('listening');recognition=null;};
+  recognition.onerror=()=>{btn.classList.remove('listening');recognition=null;};
+  recognition.start();
 }
 </script>
