@@ -231,9 +231,13 @@ function switchTab(tab){
   document.getElementById('tab-password').classList.toggle('active',tab==='password');
   document.getElementById('tab-pay').classList.toggle('active',tab==='pay');
 }
-function loginWithPassword(){
-  if(document.getElementById('passwordInput').value===PASSWORD){
+async function loginWithPassword(){
+  const val=document.getElementById('passwordInput').value;
+  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'verify',password:val})});
+  const data=await res.json();
+  if(data.success){
     sessionStorage.setItem('radd_auth','password');
+    sessionStorage.setItem('radd_pass',val);
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('sessionBadge').textContent='● Authorized';
   }else{document.getElementById('passwordError').textContent='Incorrect password.';}
@@ -330,7 +334,7 @@ function showTyping(){
 function removeTyping(){document.getElementById('typingDots')?.remove();}
 
 async function callRadd(system,messages){
-  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system,messages})});
+  const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system,messages,password:sessionStorage.getItem('radd_pass')})});
   const data=await res.json();
   if(data.error)throw new Error(data.error);
   return data.text;
