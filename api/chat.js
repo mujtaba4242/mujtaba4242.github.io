@@ -7,8 +7,9 @@ export default async function handler(req, res) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     
-    // Updated URL: Using v1beta with the stable 1.5-flash model name
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // Updated for 2026: Using the v1beta endpoint with the 2.5 series
+    // Note: The "models/" prefix is required inside the path for this version
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -28,9 +29,9 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error('Google API Error:', JSON.stringify(data));
-      // If we are still hitting 429, we'll let the user know specifically
+      // If 429 persists, it's a project-level cooling period
       return res.status(response.status).json({ 
-        error: data.error?.message || 'AI Service Busy',
+        error: data.error?.message || 'AI Service is currently restricted',
         code: data.error?.code 
       });
     }
